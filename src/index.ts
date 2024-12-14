@@ -1,41 +1,65 @@
 import './scss/styles.scss';
 
-import {AuctionAPI} from "./components/AuctionAPI";
-import {API_URL, CDN_URL} from "./utils/constants";
-import {EventEmitter} from "./components/base/events";
+import { EventEmitter } from './components/base/events';
+import { BasketModel } from './components/models/BasketModel';
+import { BasketView } from './components/BasketView';
+import { BasketPresenter } from './components/presenters/BasketPresenter';
+import { BasketModalView } from './components/BasketModalView';
+import { AuctionAPI } from './components/AuctionAPI';
+import { CatalogView } from './components/CatalogView';
+import { CatalogPresenter } from './components/presenters/CatalogPresenter';
+import { CDN_URL } from './utils/constants';
+import { API_URL } from './utils/constants';
 
-const events = new EventEmitter();
-const api = new AuctionAPI(CDN_URL, API_URL);
+function initializeApp() {
+	const events = new EventEmitter();
+	const basketModel = new BasketModel(events);
+	const api = new AuctionAPI(CDN_URL, API_URL);
 
-// Чтобы мониторить все события, для отладки
-events.onAll(({ eventName, data }) => {
-    console.log(eventName, data);
-})
+	const basketView = new BasketView(
+		document.querySelector('[data-component="basket"]') as HTMLElement,
+		events
+	);
 
-// Все шаблоны
+	const basketModalView = new BasketModalView(
+		document.querySelector('#modal-container') as HTMLElement,
+		events
+	);
 
+	const catalogView = new CatalogView(
+		document.querySelector('[data-component="catalog"]') as HTMLElement,
+		events
+	);
 
-// Модель данных приложения
+	new BasketPresenter(basketModel, basketView, basketModalView, api);
+	new CatalogPresenter(catalogView, basketModel, api, events);
 
+	events.onAll(({ eventName, data }) => {
+		console.log(eventName, data);
+	});
 
-// Глобальные контейнеры
+	api
+		.getLotList()
+		.then((lots) => {
+			console.log('Lots received:', lots);
+		})
+		.catch((err) => {
+			console.error('Failed to fetch lots:', err);
+		});
 
+	document.addEventListener('click', (event) => {
+		const target = event.target as HTMLElement;
+		if (
+			target.classList.contains('state__action') &&
+			target.textContent === 'На главную'
+		) {
+			const modal = target.closest('.modal') as HTMLElement;
+			if (modal) {
+				modal.classList.remove('modal_active');
+			}
+			events.emit('app:reset');
+		}
+	});
+}
 
-// Переиспользуемые части интерфейса
-
-
-// Дальше идет бизнес-логика
-// Поймали событие, сделали что нужно
-
-
-// Получаем лоты с сервера
-api.getLotList()
-    .then(result => {
-        // вместо лога поместите данные в модель
-        console.log(result);
-    })
-    .catch(err => {
-        console.error(err);
-    });
-
-
+document.addEventListener('DOMContentLoaded', initializeApp);
